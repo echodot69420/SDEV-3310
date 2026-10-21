@@ -1,0 +1,19 @@
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from typing import Any
+
+
+class MemberService(ABC):
+    @abstractmethod
+    def create(self, data: dict[str, Any]) -> Any: ...
+    @abstractmethod
+    def list(self) -> list[Any]: ...
+    @abstractmethod
+    def get(self, member_id: int) -> Any: ...
+    @abstractmethod
+    def update(self, member_id: int, changes: dict[str, Any]) -> Any: ...
+    @abstractmethod
+    def delete(self, member_id: int) -> None: ...
+    @abstractmethod
+    def books(self, member_id: int) -> list[Any]: ...

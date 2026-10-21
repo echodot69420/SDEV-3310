@@ -1,16 +1,12 @@
-from fastapi import APIRouter, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Response, status
 
-from app.models.schemas import BookCreate, BookResponse, BookUpdate
-from app.services import storage
+from app.dependencies import get_book_service
+from app.exceptions import LibraryError
+from app.routers.http_errors import http_error
+from app.schemas.books import BookCreate, BookResponse, BookUpdate
+from app.services.books.base import BookService
 
 router = APIRouter(prefix="/api/books", tags=["books"])
-
-
-def find_duplicate_isbn(isbn: str, excluding_id: int | None = None) -> bool:
-    return any(
-        book["isbn"] == isbn and book_id != excluding_id
-        for book_id, book in storage.books.items()
-    )
 
 
 @router.post(
@@ -18,42 +14,47 @@ def find_duplicate_isbn(isbn: str, excluding_id: int | None = None) -> bool:
     response_model=BookResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create a book",
+    responses={404: {"description": "Member not found"}, 409: {"description": "ISBN already exists"}},
 )
-def create_book(book: BookCreate) -> dict:
-    if book.member_id not in storage.members:
-        raise HTTPException(status_code=404, detail="Member not found")
-    if find_duplicate_isbn(book.isbn):
-        raise HTTPException(status_code=409, detail="ISBN already exists")
-    return storage.create_book(book.model_dump())
+def create_book(book: BookCreate, service: BookService = Depends(get_book_service)):
+    try:
+        return service.create(book.model_dump())
+    except LibraryError as exc:
+        raise http_error(exc) from exc
 
 
 @router.get("", response_model=list[BookResponse], summary="List books")
-def list_books() -> list[dict]:
-    return list(storage.books.values())
+def list_books(service: BookService = Depends(get_book_service)):
+    return service.list()
 
 
-@router.get("/{book_id}", response_model=BookResponse, summary="Get a book")
-def get_book(book_id: int) -> dict:
-    book = storage.books.get(book_id)
-    if book is None:
-        raise HTTPException(status_code=404, detail="Book not found")
-    return book
+@router.get(
+    "/{book_id}",
+    response_model=BookResponse,
+    summary="Get a book",
+    responses={404: {"description": "Book not found"}},
+)
+def get_book(book_id: int, service: BookService = Depends(get_book_service)):
+    try:
+        return service.get(book_id)
+    except LibraryError as exc:
+        raise http_error(exc) from exc
 
 
-@router.patch("/{book_id}", response_model=BookResponse, summary="Update a book")
-def update_book(book_id: int, changes: BookUpdate) -> dict:
-    book = storage.books.get(book_id)
-    if book is None:
-        raise HTTPException(status_code=404, detail="Book not found")
-
-    updates = changes.model_dump(exclude_unset=True)
-    if "member_id" in updates and updates["member_id"] not in storage.members:
-        raise HTTPException(status_code=404, detail="Member not found")
-    if "isbn" in updates and find_duplicate_isbn(updates["isbn"], book_id):
-        raise HTTPException(status_code=409, detail="ISBN already exists")
-
-    book.update(updates)
-    return book
+@router.patch(
+    "/{book_id}",
+    response_model=BookResponse,
+    summary="Update a book",
+    responses={
+        404: {"description": "Book or Member not found"},
+        409: {"description": "ISBN already exists"},
+    },
+)
+def update_book(book_id: int, changes: BookUpdate, service: BookService = Depends(get_book_service)):
+    try:
+        return service.update(book_id, changes.model_dump(exclude_unset=True))
+    except LibraryError as exc:
+        raise http_error(exc) from exc
 
 
 @router.delete(
@@ -61,8 +62,11 @@ def update_book(book_id: int, changes: BookUpdate) -> dict:
     status_code=status.HTTP_204_NO_CONTENT,
     response_class=Response,
     summary="Delete a book",
+    responses={404: {"description": "Book not found"}},
 )
-def delete_book(book_id: int) -> Response:
-    if storage.books.pop(book_id, None) is None:
-        raise HTTPException(status_code=404, detail="Book not found")
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+def delete_book(book_id: int, service: BookService = Depends(get_book_service)) -> Response:
+    try:
+        service.delete(book_id)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    except LibraryError as exc:
+        raise http_error(exc) from exc

@@ -1,104 +1,104 @@
 # Library Management System API
 
-Assignment 1 implementation using Python and FastAPI. The API manages Members and the Books they have borrowed using in-memory storage.
+FastAPI library API for managing members and the books they borrow. Assignment 2
+adds PostgreSQL persistence while retaining a selectable in-memory backend.
 
-Data is intentionally lost when the application restarts. Database persistence is reserved for Assignment 2.
+## Prerequisites
 
-## Setup and Run
+Install Python 3.11+ and PostgreSQL 14+. Create a database (for example,
+`library`) and ensure the PostgreSQL server is running.
 
-Create and activate a virtual environment, then install the dependencies:
+```sql
+CREATE DATABASE library;
+```
+
+## Setup, configuration, and run
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+Copy-Item .env.example .env
 ```
 
-Start the development server:
+The repository also includes `pyproject.toml` and `uv.lock` for reproducible
+installs with uv:
+
+```powershell
+uv sync
+Copy-Item .env.example .env
+```
+
+Edit `.env` with the PostgreSQL credentials for your machine:
+
+```text
+STORAGE_BACKEND=database
+DATABASE_URL=postgresql+psycopg://postgres:change-me@localhost:5432/library
+```
+
+The database backend is the default and creates the tables at startup. To run
+without PostgreSQL for temporary development, set `STORAGE_BACKEND=memory`.
+Memory data is lost when the process stops.
 
 ```powershell
 uvicorn app.main:app --reload --port 8000
 ```
 
-Interactive API documentation is available at:
+Interactive documentation: [Swagger UI](http://localhost:8000/docs) and
+[ReDoc](http://localhost:8000/redoc).
 
-- Swagger UI: <http://localhost:8000/docs>
-- ReDoc: <http://localhost:8000/redoc>
+## API
 
-## API Endpoints
+`POST/GET /api/members`, `GET/PATCH/DELETE /api/members/{member_id}`,
+`GET /api/members/{member_id}/books`, and
+`POST/GET /api/books`, `GET/PATCH/DELETE /api/books/{book_id}` are available.
+Creates return `201`, deletes return `204`, missing resources return `404`,
+and duplicate values or deleting a member with books return `409`.
 
-| Method | Path | Description |
-| --- | --- | --- |
-| `POST` | `/api/members` | Create a member |
-| `GET` | `/api/members` | List members |
-| `GET` | `/api/members/{member_id}` | Get one member |
-| `PATCH` | `/api/members/{member_id}` | Update a member |
-| `DELETE` | `/api/members/{member_id}` | Delete a member without books |
-| `GET` | `/api/members/{member_id}/books` | List a member's books |
-| `POST` | `/api/books` | Create a book |
-| `GET` | `/api/books` | List books |
-| `GET` | `/api/books/{book_id}` | Get one book |
-| `PATCH` | `/api/books/{book_id}` | Update a book |
-| `DELETE` | `/api/books/{book_id}` | Delete a book |
-
-Successful creates return `201 Created`. Successful deletes return `204 No Content`. Missing resources return `404 Not Found`, and duplicate values or attempts to delete a member with books return `409 Conflict`.
-
-## Example Requests
-
-Create a member:
+Example related requests:
 
 ```json
 POST /api/members
-{
-	"name": "Alex Morgan",
-	"email": "alex.morgan@example.com",
-	"membership_id": "MEM-1001",
-	"phone": "+15551234567"
-}
+{"name":"Alex Morgan","email":"alex.morgan@example.com","membership_id":"MEM-1001","phone":"+15551234567"}
 ```
-
-Create a book associated with member `1`:
 
 ```json
 POST /api/books
-{
-	"title": "The Left Hand of Darkness",
-	"author": "Ursula K. Le Guin",
-	"isbn": "9780441478125",
-	"published_year": 1969,
-	"member_id": 1
-}
+{"title":"The Left Hand of Darkness","author":"Ursula K. Le Guin","isbn":"9780441478125","published_year":1969,"member_id":1}
 ```
 
-Retrieve that member's books:
-
-```text
-GET /api/members/1/books
-```
-
-## Validation Rules
-
-- Book titles are 1-200 characters after trimming whitespace.
-- Book authors are 1-120 characters after trimming whitespace.
-- ISBN values are required and unique.
-- Publication years must be between 1450 and the current year.
-- `member_id` must identify an existing member.
-- Member names are 1-120 characters after trimming whitespace.
-- Member emails must be valid and unique.
-- Membership IDs must be unique.
-- Phone numbers use an optional leading `+` followed by 8-15 digits.
-
-## Project Structure
+## Project structure
 
 ```text
 app/
-├── main.py
+├── config.py                 # typed settings and backend enum
+├── database/
+│   ├── __init__.py           # database infrastructure exports
+│   └── session.py            # engine/session factory construction
+├── dependencies.py           # FastAPI service dependencies
+├── exceptions.py             # application outcomes
+├── main.py                   # startup service selection and app
 ├── models/
-│   └── schemas.py
+│   ├── __init__.py            # imports/registers ORM models
+│   ├── base.py               # SQLAlchemy declarative base
+│   ├── member.py             # member table and relationship
+│   └── book.py               # book table and relationship
+├── repositories/
+│   ├── members.py            # member queries and writes
+│   └── books.py              # book queries and writes
+├── schemas/
+│   ├── __init__.py            # schema exports
+│   ├── members.py             # member request/response schemas
+│   └── books.py               # book request/response schemas
 ├── routers/
-│   ├── books.py
-│   └── members.py
+│   ├── http_errors.py        # application exception mapping
+│   └── ...                   # HTTP endpoints
 └── services/
-		└── storage.py
+    ├── in_memory_store.py    # process-local state
+    ├── members/               # member service contract/backends
+    └── books/                 # book service contract/backends
+.env.example
+pyproject.toml
 requirements.txt
+uv.lock
 ```
