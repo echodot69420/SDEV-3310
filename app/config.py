@@ -17,6 +17,7 @@ class Settings(BaseSettings):
         default="postgresql+psycopg://postgres:change-me@localhost:5432/library",
         description="SQLAlchemy PostgreSQL connection URL",
     )
+    database_echo_sql: bool = False
 
     @field_validator("database_url")
     @classmethod

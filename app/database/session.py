@@ -13,6 +13,10 @@ class DatabaseInfrastructure:
 
 
 def create_database(settings: Settings) -> DatabaseInfrastructure:
-    engine = create_engine(settings.database_url, pool_pre_ping=True)
+    engine = create_engine(
+        settings.database_url,
+        echo=settings.database_echo_sql,
+        pool_pre_ping=True,
+    )
     factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     return DatabaseInfrastructure(engine=engine, session_factory=factory)

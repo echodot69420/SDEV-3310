@@ -47,6 +47,11 @@ uvicorn app.main:app --reload --port 8000
 Interactive documentation: [Swagger UI](http://localhost:8000/docs) and
 [ReDoc](http://localhost:8000/redoc).
 
+## Detailed setup documentation
+
+- [Windows setup](docs/windows-setup.md)
+- [Database and configuration](docs/database-and-configuration.md)
+
 ## API
 
 `POST/GET /api/members`, `GET/PATCH/DELETE /api/members/{member_id}`,
@@ -97,6 +102,9 @@ app/
     ├── in_memory_store.py    # process-local state
     ├── members/               # member service contract/backends
     └── books/                 # book service contract/backends
+docs/
+├── windows-setup.md           # Windows, Python, uv, and PostgreSQL setup
+└── database-and-configuration.md
 .env.example
 pyproject.toml
 requirements.txt
